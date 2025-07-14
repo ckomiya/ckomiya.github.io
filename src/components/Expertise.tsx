@@ -109,7 +109,7 @@ function Expertise() {
                 <div className="skill">
                     <FontAwesomeIcon icon={faTrello} size="3x"/>
                     <h3>Agile</h3>
-                    <p>Tengo enfoque en metodologías Lean y Agile aplicadas al desarrollo de software y gestión de proyectos. Adopto prácticas Lean para eliminar desperdicios y optimizar procesos, mientras utilizo principios Agile para iterar de forma eficiente, priorizar el valor al cliente y fomentar la colaboración en equipos multidisciplinarios. Este enfoque combinado me permite entregar software con mayor rapidez, calidad y adaptabilidad al cambio en entornos empresariales. </p>
+                    <p>Tengo enfoque en metodologías Lean y Agile aplicadas al desarrollo de software y gestión de proyectos. Adopto prácticas Lean para eliminar desperdicios y optimizar procesos, mientras utilizo principios Agile para iterar de forma eficiente, priorizar el valor al cliente y fomentar la colaboración en equipos multidisciplinarios. </p>
                     <div className="flex-chips">
                         <span className="chip-title">Metodologías y Marcos:</span>
                         {labelsFourth.map((label, index) => (
