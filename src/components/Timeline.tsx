@@ -23,7 +23,7 @@ function Timeline() {
             <h3 className="vertical-timeline-element-title">Docente</h3>
             <h4 className="vertical-timeline-element-subtitle">CIBERTEC</h4>
             <p>
-              Java, Spring Framework, Scrum, MySQL, LEGO SERIOUS PLAY, Python, LLMs
+              Java, Spring Framework, Scrum, MySQL, LEGO SERIOUS PLAY, Python, LLMs, Azure
             </p>
           </VerticalTimelineElement>
           <VerticalTimelineElement
