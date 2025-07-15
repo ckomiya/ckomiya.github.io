@@ -35,7 +35,7 @@ function Timeline() {
             <h3 className="vertical-timeline-element-title">Lean Agile Consultant</h3>
             <h4 className="vertical-timeline-element-subtitle">Inception Play</h4>
             <p>
-              Scrum, SAFe, OKRs, Kanban, LEGO SERIOUS PLAY, Team Building, Agile Coaching, DevOps
+              Scrum, SAFe, OKRs, Kanban, LEGO SERIOUS PLAY, Team Building, Agile Coaching, DevOps, Power BI
             </p>
           </VerticalTimelineElement>
 

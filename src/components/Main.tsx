@@ -20,7 +20,7 @@ function Main() {
           <p>Lean Agile Consultant | Dev Full-Stack | AI/ML Engineer | AWS Solutions Architect </p>
 
           <div className="mobile_social_icons">
-            <a href="ttps://github.com/ckomiya" target="_blank" rel="noreferrer"><GitHubIcon/></a>
+            <a href="https://github.com/ckomiya" target="_blank" rel="noreferrer"><GitHubIcon/></a>
             <a href="https://www.linkedin.com/in/ckomiya/" target="_blank" rel="noreferrer"><LinkedInIcon/></a>
           </div>
         </div>
