@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import '../assets/styles/Badges.scss';
 
 interface Badge {
   name: string;
@@ -14,7 +15,9 @@ function Badges() {
   useEffect(() => {
     const userId = 'christian-gonzales-komiya';
     const target = `https://www.credly.com/users/${userId}/badges.json`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
+    //const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
+    //const proxyUrl = `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(target)}`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(target)}`;
 
     fetch(proxyUrl)
       .then(res => {
@@ -38,7 +41,7 @@ function Badges() {
   }, []);
 
   if (error) {
-    return <div>Error: {error}</div>;
+    return <div className="badges-error">Error: {error}</div>;
   }
 
   return (
