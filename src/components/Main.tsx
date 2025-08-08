@@ -1,10 +1,10 @@
 import React from "react";
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import ArticleIcon from '@mui/icons-material/Article'; // Icono genérico de artículo/blog
 import '../assets/styles/Main.scss';
 
 function Main() {
-
   return (
     <div className="container">
       <div className="about-section">
@@ -15,13 +15,18 @@ function Main() {
           <div className="social_icons">
             <a href="https://github.com/ckomiya" target="_blank" rel="noreferrer"><GitHubIcon/></a>
             <a href="https://www.linkedin.com/in/ckomiya/" target="_blank" rel="noreferrer"><LinkedInIcon/></a>
+            <a href="https://medium.com/@christian.komiya" target="_blank" rel="noreferrer">
+              <ArticleIcon fontSize="large" />
+            </a>
           </div>
           <h1>Christian Gonzales</h1>
-          <p>Lean Agile Consultant | Dev Full-Stack | AI/ML Engineer | AWS Solutions Architect </p>
-
+          <p>Lean Agile Consultant | Dev Full-Stack | AI/ML Engineer | AWS Solutions Architect</p>
           <div className="mobile_social_icons">
             <a href="https://github.com/ckomiya" target="_blank" rel="noreferrer"><GitHubIcon/></a>
             <a href="https://www.linkedin.com/in/ckomiya/" target="_blank" rel="noreferrer"><LinkedInIcon/></a>
+            <a href="https://medium.com/@christian.komiya" target="_blank" rel="noreferrer">
+              <ArticleIcon fontSize="large" />
+            </a>
           </div>
         </div>
       </div>

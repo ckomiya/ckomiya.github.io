@@ -7,6 +7,7 @@ import '../assets/styles/Expertise.scss';
 
 const labelsFirst = [
     "React",
+    "React Native",
     "TypeScript",
     "JavaScript",
     "Angular",
@@ -54,6 +55,7 @@ const labelsThird = [
 
 const labelsFourth = [
     "Scrum",
+    "XP",
     "Kanban",
     "SAFe",
     "OKRs",
