@@ -47,10 +47,12 @@ const labelsSecond = [
 
 const labelsThird = [
     "OpenAI",
+    "Claude",
     "LangChain",
     "Hugging Face",
     "LlamaIndex",
     "Streamlit",
+    "Dash",
 ];
 
 const labelsFourth = [
@@ -99,7 +101,7 @@ function Expertise() {
                 <div className="skill">
                     <FontAwesomeIcon icon={faPython} size="3x"/>
                     <h3>GenAI & LLM</h3>
-                    <p>Me mantengo al día con las últimas tendencias en inteligencia artificial generativa (GenAI) e incorporo modelos avanzados de IA en el desarrollo de soluciones que fortalecen la toma de decisiones inteligentes en entornos empresariales.</p>
+                    <p>Me mantengo al día con las últimas tendencias en inteligencia artificial generativa (GenAI) e incorporo modelos avanzados de IA en el desarrollo de soluciones que fortalecen la toma de decisiones inteligentes en entornos empresariales. También desarrollo Agentes de IA y dashboards de analítica y ciencia de datos.</p>
                     <div className="flex-chips">
                         <span className="chip-title">Tech stack:</span>
                         {labelsThird.map((label, index) => (

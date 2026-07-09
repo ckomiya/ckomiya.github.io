@@ -15,7 +15,7 @@ function Main() {
           <div className="social_icons">
             <a href="https://github.com/ckomiya" target="_blank" rel="noreferrer"><GitHubIcon/></a>
             <a href="https://www.linkedin.com/in/ckomiya/" target="_blank" rel="noreferrer"><LinkedInIcon/></a>
-            <a href="https://medium.com/@christian.komiya" target="_blank" rel="noreferrer">
+            <a href="https://dev.to/ckomiya" target="_blank" rel="noreferrer">
               <ArticleIcon fontSize="large" />
             </a>
           </div>
@@ -24,7 +24,7 @@ function Main() {
           <div className="mobile_social_icons">
             <a href="https://github.com/ckomiya" target="_blank" rel="noreferrer"><GitHubIcon/></a>
             <a href="https://www.linkedin.com/in/ckomiya/" target="_blank" rel="noreferrer"><LinkedInIcon/></a>
-            <a href="https://medium.com/@christian.komiya" target="_blank" rel="noreferrer">
+            <a href="https://dev.to/ckomiya" target="_blank" rel="noreferrer">
               <ArticleIcon fontSize="large" />
             </a>
           </div>
