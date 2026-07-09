@@ -1,19 +1,19 @@
 {
   "files": {
     "main.css": "/static/css/main.8765b8c3.css",
-    "main.js": "/static/js/main.be25f295.js",
+    "main.js": "/static/js/main.07266b05.js",
     "static/js/453.1b0d4a06.chunk.js": "/static/js/453.1b0d4a06.chunk.js",
-    "static/media/denuncias_app.png": "/static/media/denuncias_app.49259b3242414a1a19c2.png",
     "static/media/bg-light.png": "/static/media/bg-light.bac0efb485244a522981.png",
     "static/media/bg-dark.png": "/static/media/bg-dark.f420c6b8458af72de935.png",
-    "static/media/llmchatbot_lp2.jpg": "/static/media/llmchatbot_lp2.f7f841c5808882194172.jpg",
+    "static/media/denuncias_pnp.jpg": "/static/media/denuncias_pnp.13096ec22745bfccb8ff.jpg",
+    "static/media/vigia_enos.jpg": "/static/media/vigia_enos.7968a341c4535d5416cb.jpg",
     "index.html": "/index.html",
     "main.8765b8c3.css.map": "/static/css/main.8765b8c3.css.map",
-    "main.be25f295.js.map": "/static/js/main.be25f295.js.map",
+    "main.07266b05.js.map": "/static/js/main.07266b05.js.map",
     "453.1b0d4a06.chunk.js.map": "/static/js/453.1b0d4a06.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.8765b8c3.css",
-    "static/js/main.be25f295.js"
+    "static/js/main.07266b05.js"
   ]
 }
