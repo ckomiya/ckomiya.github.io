@@ -2,6 +2,7 @@ import React from "react";
 import '@fortawesome/free-regular-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faReact, faDocker, faPython, faTrello } from '@fortawesome/free-brands-svg-icons';
+import { faGamepad } from '@fortawesome/free-solid-svg-icons';
 import Chip from '@mui/material/Chip';
 import '../assets/styles/Expertise.scss';
 
@@ -67,6 +68,15 @@ const labelsFourth = [
     "Lean Inception"
 ];
 
+const labelsFifth = [
+    "Phaser",
+    "Lua",
+    "Roblox Studio",
+    "JavaScript",
+    "Game Design",
+    "2D Game Dev",
+];
+
 
 function Expertise() {
     return (
@@ -122,6 +132,17 @@ function Expertise() {
                     </div>
                 </div>
 
+                <div className="skill">
+                    <FontAwesomeIcon icon={faGamepad} size="3x"/>
+                    <h3>Desarrollo de Videojuegos</h3>
+                    <p>Desarrollo videojuegos 2D con Phaser para web y experiencias interactivas en Roblox utilizando Lua, combinando lógica de gameplay, mecánicas de juego y diseño de niveles.</p>
+                    <div className="flex-chips">
+                        <span className="chip-title">Tech stack:</span>
+                        {labelsFifth.map((label, index) => (
+                            <Chip key={index} className='chip' label={label} />
+                        ))}
+                    </div>
+                </div>
 
             </div>
         </div>
