@@ -8,8 +8,10 @@ Garantías:
 - Si falla el tráfico de un repo, se conserva su histórico anterior.
 - De los repos privados solo se guardan totales agregados (un número).
 """
+import bisect
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -20,8 +22,14 @@ from pathlib import Path
 LOGIN = os.environ.get("GH_LOGIN", "ckomiya")
 TOKEN = os.environ.get("GH_STATS_TOKEN") or os.environ.get("GH_TOKEN")
 OUT = Path(__file__).resolve().parent.parent / "data" / "data.json"
+CACHE = OUT.with_name("cache.json")  # estado incremental: no lo lee la página
 API = "https://api.github.com"
 ACTIVE_DAYS = 30
+SIZE_EDGES = [10, 50, 200, 1000]  # <10 · 10–49 · 50–199 · 200–999 · ≥1000 líneas
+SIZE_LABELS = ["<10", "10–49", "50–199", "200–999", "≥1000"]
+DETAIL_BUDGET = 1200   # commits a detallar por ejecución (1 petición c/u)
+RATE_RESERVE = 800     # no gastar el último tramo del límite horario (5000)
+STATS_ROUNDS = 5       # reintentos del 202 de code frequency
 
 try:
     from zoneinfo import ZoneInfo
@@ -37,7 +45,10 @@ class ApiError(Exception):
     pass
 
 
-def request(method, url, body=None, retries=4):
+STATE = {"requests": 0, "remaining": None}
+
+
+def request(method, url, body=None, retries=4, with_status=False):
     headers = {
         "Authorization": f"Bearer {TOKEN}",
         "Accept": "application/vnd.github+json",
@@ -49,7 +60,12 @@ def request(method, url, body=None, retries=4):
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
-                return json.load(resp), resp.headers
+                STATE["requests"] += 1
+                if resp.headers.get("X-RateLimit-Remaining"):
+                    STATE["remaining"] = int(resp.headers["X-RateLimit-Remaining"])
+                raw = resp.read()
+                parsed = json.loads(raw) if raw.strip() else None  # 204 y 202 llegan sin cuerpo útil
+                return (parsed, resp.headers, resp.status) if with_status else (parsed, resp.headers)
         except urllib.error.HTTPError as e:
             h = e.headers
             if e.code in (403, 429) and (h.get("Retry-After") or h.get("X-RateLimit-Remaining") == "0"):
@@ -109,11 +125,21 @@ query($login: String!, $ytd: DateTime!) {
 """
 
 
-def load_previous():
+def load_json(path):
     try:
-        return json.loads(OUT.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def load_previous():
+    return load_json(OUT)
+
+
+def write_json(path, obj):
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.replace(path)  # escritura atómica
 
 
 def week_start(d):
@@ -153,10 +179,160 @@ def count_private_commits(all_repos, since, prev, warnings):
     return total
 
 
+# --- Commits históricos (incremental) y tamaño de commits ---------------------------
+
+LOCKFILES = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "npm-shrinkwrap.json", "poetry.lock",
+             "pipfile.lock", "composer.lock", "cargo.lock", "gemfile.lock", "go.sum", "uv.lock", "bun.lockb",
+             "pubspec.lock", "mix.lock", "packages.lock.json"}
+GENERATED_EXT = (".min.js", ".min.css", ".map", ".lock", ".csv", ".tsv", ".parquet", ".jsonl", ".ndjson",
+                 ".xlsx", ".xls", ".sqlite", ".db", ".ipynb")
+GENERATED_DIRS = ("node_modules/", "dist/", "build/", "vendor/", ".next/", "__pycache__/", "target/")
+
+
+def is_generated(path):
+    low = path.lower()
+    base = low.rsplit("/", 1)[-1]
+    if base in LOCKFILES or low.endswith(GENERATED_EXT):
+        return True
+    if low.startswith("data/") and low.endswith(".json"):  # data/data.json, data/cache.json…
+        return True
+    return low.startswith(GENERATED_DIRS) or any("/" + d in low for d in GENERATED_DIRS)
+
+
+def new_commit_state():
+    return {"cursor": None, "tail": [], "n": 0, "first": None, "last": None,
+            "daily": {}, "hours": [0] * 24, "wd": [0] * 7, "sizes": [0] * 5, "pending": []}
+
+
+def is_mine(c):
+    a = c.get("author")
+    return a is None or (a.get("type") != "Bot" and (a.get("login") or "").lower() == LOGIN.lower())
+
+
+def sync_commits(full, st):
+    """Trae solo los commits míos posteriores al cursor y los suma al estado del repo.
+
+    El cursor retrocede 2 días respecto al commit más nuevo y `tail` guarda los SHAs de esa
+    ventana para no contar dos veces; así nunca se vuelve a pedir el historial antiguo.
+    """
+    params = f"&author={LOGIN}" + (f"&since={st['cursor']}" if st["cursor"] else "")
+    try:
+        found = rest_paged(f"/repos/{full}/commits", params)
+    except ApiError as e:
+        if "409" in str(e):  # repo vacío
+            return
+        raise
+    known = set(st["tail"]) | set(st["pending"])
+    fresh = [c for c in found if c["sha"] not in known and is_mine(c)]
+    for c in fresh:
+        dt = datetime.fromisoformat(c["commit"]["author"]["date"].replace("Z", "+00:00")).astimezone(TZ)
+        st["n"] += 1
+        st["daily"][dt.date().isoformat()] = st["daily"].get(dt.date().isoformat(), 0) + 1
+        st["hours"][dt.hour] += 1
+        st["wd"][dt.weekday()] += 1
+        iso = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        st["first"] = min(st["first"] or iso, iso)
+        st["last"] = max(st["last"] or iso, iso)
+        if len(c.get("parents", [])) < 2:  # los merges no miden trabajo real
+            st["pending"].append(c["sha"])
+    if found:
+        newest = max(c["commit"]["committer"]["date"] for c in found)
+        cursor = (datetime.fromisoformat(newest.replace("Z", "+00:00")) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        st["cursor"] = max(st["cursor"] or cursor, cursor)
+        st["tail"] = [c["sha"] for c in found if c["commit"]["committer"]["date"] >= st["cursor"]]
+
+
+def size_commits(states, repo_names, warnings):
+    """Mide líneas cambiadas (sin archivos generados) de los commits pendientes, con tope por ejecución."""
+    done = errors = 0
+    for name in repo_names:  # repos más recientes primero
+        st = states[name]
+        keep = []
+        for i, sha in enumerate(st["pending"]):
+            if done >= DETAIL_BUDGET or (STATE["remaining"] is not None and STATE["remaining"] < RATE_RESERVE) or errors >= 3:
+                keep.extend(st["pending"][i:])
+                break
+            try:
+                detail = rest(f"/repos/{st['full']}/commits/{sha}")
+            except ApiError as e:
+                if "HTTP 404" in str(e) or "HTTP 422" in str(e):  # commit ya inexistente (force-push)
+                    continue
+                errors += 1
+                keep.append(sha)
+                continue
+            errors = 0
+            done += 1
+            lines = sum(f.get("changes", 0) for f in detail.get("files", []) if not is_generated(f["filename"]))
+            if lines > 0:  # commit que solo toca archivos generados: no cuenta
+                st["sizes"][bisect.bisect_right(SIZE_EDGES, lines)] += 1
+        st["pending"] = keep
+    left = sum(len(st["pending"]) for st in states.values())
+    if left:
+        warnings.append(f"tamaño de commits: {left} pendientes, se completan en próximas ejecuciones")
+    return left
+
+
+def fetch_code_frequency(repos, cf, warnings):
+    """/stats/code_frequency responde 202 mientras GitHub calcula: reintenta con espera y,
+    si no llega, conserva el dato anterior de ese repo."""
+    pending = list(repos)
+    for rnd in range(STATS_ROUNDS):
+        still = []
+        for r in pending:
+            try:
+                body, _, status = request("GET", f"{API}/repos/{r['full_name']}/stats/code_frequency", with_status=True)
+            except ApiError as e:
+                warnings.append(f"{r['name']}: líneas ({e})")
+                continue
+            if status == 202:
+                still.append(r)
+            else:
+                cf[r["name"]] = [[w, a, abs(d)] for w, a, d in (body or []) if a or d]
+        pending = still
+        if not pending:
+            return
+        print(f"  code frequency: {len(pending)} repos calculándose (ronda {rnd + 1})", file=sys.stderr)
+        time.sleep(10 * (rnd + 1))
+    warnings.append(f"líneas: {len(pending)} repos sin calcular, se conserva el dato anterior")
+
+
+def build_records(states):
+    daily, hours, wd = {}, [0] * 24, [0] * 7
+    for st in states.values():
+        for d, n in st["daily"].items():
+            daily[d] = daily.get(d, 0) + n
+        hours = [a + b for a, b in zip(hours, st["hours"])]
+        wd = [a + b for a, b in zip(wd, st["wd"])]
+    total = sum(wd)
+    if not total:
+        return None
+    best, run, prev_day = (0, None, None), 0, None
+    for d in sorted(daily):
+        cur = date.fromisoformat(d)
+        run = run + 1 if prev_day and cur - prev_day == timedelta(days=1) else 1
+        start = d if run == 1 else start
+        if run > best[0]:
+            best = (run, start, d)
+        prev_day = cur
+    top_day = max(daily.items(), key=lambda kv: (kv[1], kv[0]))
+    weekend = wd[5] + wd[6]
+    return {
+        "total": total,
+        "longest_streak": {"days": best[0], "start": best[1], "end": best[2]},
+        "busiest_day": {"date": top_day[0], "count": top_day[1]},
+        "top_hour": {"hour": hours.index(max(hours)), "count": max(hours)},
+        "weekend_pct": round(100 * weekend / total),
+    }
+
+
 def main():
     if not TOKEN:
         sys.exit("Falta GH_STATS_TOKEN (o GH_TOKEN).")
     prev = load_previous()
+    cache = load_json(CACHE)
+    states = cache.get("commits", {})
+    code_freq = cache.get("code_freq", {})
+    prev_langs = {p["name"]: p.get("languages", {}) for p in prev.get("repos", [])}
 
     # --- Crítico: calendario y totales agregados (incluye actividad privada solo como número)
     ytd_from = datetime(TODAY.year, 1, 1, tzinfo=TZ).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -205,6 +381,19 @@ def main():
             except ApiError as e:
                 raise ApiError(f"Commits de {name}: {e}") from e  # sin esto las métricas quedarían sesgadas
 
+        # --- Historial completo de mis commits (incremental) y lenguajes
+        st = states.setdefault(name, new_commit_state())
+        st["full"] = full
+        try:
+            sync_commits(full, st)
+        except ApiError as e:
+            warnings.append(f"{name}: historial de commits ({e}); se conserva lo anterior")
+        try:
+            languages = rest(f"/repos/{full}/languages") or {}
+        except ApiError as e:
+            warnings.append(f"{name}: lenguajes ({e})")
+            languages = prev_langs.get(name, {})
+
         # --- Tráfico: acumulado diario, sin duplicar días (la fecha es la clave)
         hist = traffic.setdefault(name, {"views": {}, "clones": {}})
         for kind in ("views", "clones"):
@@ -225,6 +414,9 @@ def main():
             "url": r["html_url"],
             "homepage": r.get("homepage") or "",
             "language": r.get("language") or "",
+            "languages": languages,
+            "created_at": r["created_at"],
+            "commits": st["n"],
             "stars": r["stargazers_count"],
             "open_issues": r["open_issues_count"],
             "archived": r["archived"],
@@ -233,6 +425,22 @@ def main():
             "views_14d": sum(v["c"] for d, v in hist["views"].items() if d >= cutoff14),
             "clones_14d": sum(v["c"] for d, v in hist["clones"].items() if d >= cutoff14),
         })
+
+    # Solo repos públicos actuales (si uno pasa a privado o se borra, su estado se descarta)
+    current = [r["name"] for r in out_repos]
+    states = {k: v for k, v in states.items() if k in current}
+    commits_left = size_commits(states, current, warnings)
+    fetch_code_frequency(repos, code_freq, warnings)
+    code_freq = {k: v for k, v in code_freq.items() if k in current}
+    cutoff_ts = (NOW - timedelta(days=365)).timestamp()
+    lines = {}
+    for rows in code_freq.values():
+        for w, a, d in rows:
+            if w >= cutoff_ts:
+                x = lines.setdefault(w, [0, 0])
+                x[0] += a
+                x[1] += d
+    lines_weekly = [[datetime.fromtimestamp(w, timezone.utc).date().isoformat(), a, d] for w, (a, d) in sorted(lines.items())]
 
     # Conserva histórico solo de repos públicos actuales (si uno pasa a privado, se descarta)
     traffic = {k: v for k, v in traffic.items() if k in {r["name"] for r in repos}}
@@ -264,13 +472,17 @@ def main():
         "hourly": [[d, h, n] for (d, h), n in sorted(hourly.items())],
         "repos": out_repos,
         "traffic": {"repos": traffic, "total": total},
+        "records": build_records(states),
+        "lines_weekly": lines_weekly,
+        "commit_sizes": {"labels": SIZE_LABELS, "counts": [sum(st["sizes"][i] for st in states.values()) for i in range(5)],
+                         "pending": commits_left},
         "warnings": warnings,
     }
     OUT.parent.mkdir(exist_ok=True)
-    tmp = OUT.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(OUT)  # escritura atómica
-    print(f"OK: {len(out_repos)} repos, {len(warnings)} avisos", file=sys.stderr)
+    write_json(CACHE, {"commits": states, "code_freq": code_freq})
+    write_json(OUT, data)
+    print(f"OK: {len(out_repos)} repos, {len(warnings)} avisos, {STATE['requests']} peticiones, "
+          f"límite restante {STATE['remaining']}", file=sys.stderr)
 
 
 if __name__ == "__main__":
