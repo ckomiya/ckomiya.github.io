@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Christian Komiya · Actividad en GitHub</title>
+  <meta name="description" content="Dashboard personal de actividad en GitHub de Christian Komiya: commits, proyectos y tráfico de repositorios.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Christian Komiya · Actividad en GitHub">
+  <meta property="og:description" content="Commits, proyectos y tráfico de repositorios, actualizado a diario desde la API de GitHub.">
+  <meta property="og:url" content="https://ckomiya.github.io/">
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232da44e'/%3E%3Ctext x='16' y='22' font-size='17' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ECK%3C/text%3E%3C/svg%3E">
+  <script>
+    // Aplica el tema antes de pintar para evitar parpadeo
+    try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>Christian Komiya</h1>
+        <p class="tagline">Data Project Manager · Desarrollo · Agilidad</p>
+        <p class="meta">
+          <a class="site" href="https://christiankomiya.com" rel="noopener">christiankomiya.com ↗</a>
+          <span id="updated" class="muted">Última actualización: …</span>
+        </p>
+      </div>
+      <button id="theme" class="icon-btn" type="button" aria-label="Cambiar tema" title="Cambiar tema"></button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p id="error" class="error" hidden></p>
+
+    <section id="kpis" class="kpis" aria-label="Indicadores clave"></section>
+    <p id="private" class="muted note"></p>
+
+    <section>
+      <h2>Contribuciones del último año</h2>
+      <div id="c-heat" class="chart h-heat"></div>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>Commits por semana <span class="muted">· últimos 12 meses, repos públicos</span></h2>
+        <div id="c-weekly" class="chart"></div>
+      </section>
+      <section>
+        <h2>Día y hora de mis commits <span class="muted">· hora de Lima</span></h2>
+        <div id="c-hours" class="chart"></div>
+      </section>
+    </div>
+
+    <section>
+      <h2>Vistas de repositorios <span class="muted">· histórico acumulado diario</span></h2>
+      <div id="c-traffic" class="chart"></div>
+    </section>
+
+    <section>
+      <h2>Proyectos</h2>
+      <div class="filters">
+        <label>Estado
+          <select id="f-status"><option value="">Todos</option></select>
+        </label>
+        <label>Lenguaje
+          <select id="f-lang"><option value="">Todos</option></select>
+        </label>
+        <span id="count" class="muted"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="projects">
+          <thead>
+            <tr>
+              <th>Proyecto</th><th>Estado</th><th>Último commit</th><th>Lenguaje</th>
+              <th class="num">★</th><th class="num">Issues</th><th class="num">Vistas 14 d</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap muted">
+    Datos de la API de GitHub, actualizados a diario con un GitHub Action.
+    <a href="https://github.com/ckomiya/ckomiya.github.io">Código fuente</a>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
