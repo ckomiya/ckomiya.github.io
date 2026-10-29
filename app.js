@@ -28,8 +28,7 @@
 
   // ---- Tema
   function effectiveTheme() {
-    return document.documentElement.dataset.theme ||
-      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
   }
   function syncThemeButton() {
     $('theme').textContent = effectiveTheme() === 'dark' ? '☀' : '☾';
@@ -38,10 +37,6 @@
     var next = effectiveTheme() === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('theme', next); } catch (e) {}
-    syncThemeButton();
-    if (data) drawCharts();
-  });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
     syncThemeButton();
     if (data) drawCharts();
   });
@@ -55,14 +50,12 @@
       [k.commits_year, 'Commits · ' + new Date().getFullYear()],
       [k.active_repos, 'Repos activos (último mes)'],
       [k.streak + (k.streak === 1 ? ' día' : ' días'), 'Racha actual'],
-      [k.public_repos, 'Repos públicos']
+      [k.public_repos, 'Repos públicos'],
+      [k.private_commits_year, 'Commits privados · ' + new Date().getFullYear()]
     ];
     $('kpis').innerHTML = items.map(function (i) {
       return '<div class="kpi"><b>' + esc(typeof i[0] === 'number' ? nf.format(i[0]) : i[0]) + '</b><span>' + esc(i[1]) + '</span></div>';
     }).join('');
-    $('private').textContent = k.private_commits_year > 0
-      ? '+' + nf.format(k.private_commits_year) + ' commits en repos privados este año (solo el total).'
-      : '';
   }
 
   // ---- Gráficos
@@ -95,10 +88,10 @@
       }),
       visualMap: { show: false, min: 0, max: max, inRange: { color: scale }, type: 'continuous' },
       calendar: {
-        top: 28, left: 34, right: 8, bottom: 4, cellSize: ['auto', 14], range: [cal[0][0], cal[cal.length - 1][0]],
+        top: 28, left: 38, right: 8, bottom: 4, cellSize: ['auto', 14], range: [cal[0][0], cal[cal.length - 1][0]],
         itemStyle: { borderWidth: 3, borderColor: css('--bg'), color: scale[0] },
-        splitLine: { show: false }, yearLabel: { show: false }, firstDay: 1,
-        dayLabel: { nameMap: ['D', 'L', 'M', 'M', 'J', 'V', 'S'], color: css('--muted'), fontSize: 10 },
+        splitLine: { show: false }, yearLabel: { show: false },
+        dayLabel: { firstDay: 1, nameMap: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'], color: css('--muted'), fontSize: 10 },
         monthLabel: { nameMap: MONTHS, color: css('--muted'), fontSize: 11 }
       },
       series: [{ type: 'heatmap', coordinateSystem: 'calendar', data: cal }]
@@ -113,9 +106,8 @@
       xAxis: Object.assign({ type: 'time', axisLabel: { color: css('--muted'), hideOverlap: true,
         formatter: function (v) { return MONTHS[new Date(v).getUTCMonth()]; } } }, { axisLine: axisStyle().axisLine }),
       yAxis: Object.assign({ type: 'value', minInterval: 1 }, axisStyle()),
-      series: [{ type: 'line', data: data.weekly, smooth: 0.25, showSymbol: false,
-        lineStyle: { color: css('--accent'), width: 2 }, itemStyle: { color: css('--accent') },
-        areaStyle: { color: css('--accent'), opacity: 0.12 } }]
+      series: [{ type: 'bar', data: data.weekly, barMaxWidth: 10,
+        itemStyle: { color: css('--accent'), borderRadius: [2, 2, 0, 0] } }]
     }), true);
 
     var hmax = Math.max.apply(null, data.hourly.map(function (d) { return d[2]; }).concat([1]));

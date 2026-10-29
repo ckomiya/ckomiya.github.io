@@ -103,10 +103,6 @@ query($login: String!, $ytd: DateTime!) {
     }
     ytd: contributionsCollection(from: $ytd) {
       totalCommitContributions
-      commitContributionsByRepository(maxRepositories: 100) {
-        repository { isPrivate }
-        contributions { totalCount }
-      }
     }
   }
 }
@@ -135,6 +131,28 @@ def streak(calendar):
     return n
 
 
+def count_private_commits(all_repos, since, prev, warnings):
+    """Suma (solo un número) mis commits en repos privados desde `since`.
+
+    GraphQL no sirve: omite lo privado si el perfil no tiene activada la opción
+    "Include private contributions". Nunca se imprime ni se guarda un nombre.
+    """
+    total = 0
+    for r in all_repos:
+        if not r["private"] or r["owner"]["login"].lower() != LOGIN.lower():
+            continue
+        if (r.get("pushed_at") or "") < since:
+            continue
+        try:
+            total += len(rest_paged(f"/repos/{r['full_name']}/commits", f"&author={LOGIN}&since={since}"))
+        except ApiError as e:
+            if "409" in str(e):  # repo vacío
+                continue
+            warnings.append("commits privados: falló un repo; se conserva el total anterior")
+            return prev.get("kpis", {}).get("private_commits_year", 0)
+    return total
+
+
 def main():
     if not TOKEN:
         sys.exit("Falta GH_STATS_TOKEN (o GH_TOKEN).")
@@ -146,19 +164,19 @@ def main():
     calendar = [[d["date"], d["contributionCount"]]
                 for w in gq["cal"]["contributionCalendar"]["weeks"] for d in w["contributionDays"]
                 if d["date"] <= TODAY.isoformat()]
-    by_repo = gq["ytd"]["commitContributionsByRepository"]
     commits_year = gq["ytd"]["totalCommitContributions"]
-    private_commits = sum(r["contributions"]["totalCount"] for r in by_repo if r["repository"]["isPrivate"])
 
     # --- Crítico: repos públicos propios, sin forks
     all_repos = rest_paged("/user/repos", "&affiliation=owner&sort=pushed")
     repos = [r for r in all_repos if not r["private"] and not r["fork"] and r["owner"]["login"].lower() == LOGIN.lower()]
 
+    warnings = []
+    private_commits = count_private_commits(all_repos, ytd_from, prev, warnings)
+
     since = (NOW - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
     weekly, hourly = {}, {}
     commits_30d = 0
     out_repos, traffic = [], prev.get("traffic", {}).get("repos", {})
-    warnings = []
     active_cutoff = NOW - timedelta(days=ACTIVE_DAYS)
 
     for r in repos:

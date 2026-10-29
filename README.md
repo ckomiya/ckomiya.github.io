@@ -19,6 +19,9 @@ GitHub Action (cron diario)  →  scripts/update_data.py  →  data/data.json  �
 - **Commits por semana / día × hora**: commits míos en la rama por defecto de repos públicos propios (sin forks), zona horaria America/Lima.
 - **Estado de proyecto**: `activo` = commit en los últimos 30 días, `pausado` = sin commits recientes, `archivado` = repo archivado.
 - **Privacidad**: de los repos privados solo se guarda un número agregado (commits del año). Ningún nombre, descripción ni mensaje llega al JSON.
+  El total se cuenta por REST (mis commits en la rama por defecto de mis repos privados desde el 1 de enero), porque GraphQL omite lo privado si el perfil no tiene activada la opción *Include private contributions*.
+- Tema oscuro por defecto; el botón cambia a claro y la elección se guarda en `localStorage`.
+- `assets/`: avatar (cabecera), favicon y la imagen Open Graph.
 - `404.html` redirige a <https://christiankomiya.com> (enlaces viejos del portafolio anterior).
 
 ## Ejecutar en local
