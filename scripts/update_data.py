@@ -205,8 +205,12 @@ def new_commit_state():
 
 
 def is_mine(c):
+    """Commit cuyo autor (cuenta de GitHub) soy yo; excluye github-actions[bot] y cualquier otro bot.
+
+    Un commit sin cuenta vinculada (author null) no se cuenta: no se puede atribuir a nadie.
+    """
     a = c.get("author")
-    return a is None or (a.get("type") != "Bot" and (a.get("login") or "").lower() == LOGIN.lower())
+    return bool(a) and a.get("type") != "Bot" and (a.get("login") or "").lower() == LOGIN.lower()
 
 
 def sync_commits(full, st):
@@ -360,7 +364,8 @@ def main():
         print(f"- {name}", file=sys.stderr)
         last_commit = None
         try:
-            c = rest(f"/repos/{full}/commits", "?per_page=1")
+            # Solo commits míos: los del bot (p. ej. el que actualiza data.json) no cuentan como actividad.
+            c = [x for x in rest(f"/repos/{full}/commits", f"?per_page=30&author={LOGIN}") if is_mine(x)]
             if c:
                 last_commit = c[0]["commit"]["committer"]["date"]
         except ApiError as e:
@@ -371,6 +376,8 @@ def main():
         if r.get("pushed_at") and r["pushed_at"] >= since:
             try:
                 for c in rest_paged(f"/repos/{full}/commits", f"&author={LOGIN}&since={since}"):
+                    if not is_mine(c):
+                        continue
                     dt = datetime.fromisoformat(c["commit"]["author"]["date"].replace("Z", "+00:00")).astimezone(TZ)
                     ws = week_start(dt.date()).isoformat()
                     weekly[ws] = weekly.get(ws, 0) + 1
@@ -456,6 +463,8 @@ def main():
         ws += timedelta(days=7)
 
     out_repos.sort(key=lambda r: r["last_commit"] or "", reverse=True)
+    # Repo del último commit mío (sin bots); out_repos ya viene ordenado por last_commit.
+    latest = next((r for r in out_repos if r["last_commit"]), None)
     data = {
         "generated_at": NOW.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "user": {"login": LOGIN, "name": gq.get("name") or LOGIN},
@@ -467,6 +476,7 @@ def main():
             "public_repos": len(out_repos),
             "private_commits_year": private_commits,
         },
+        "ultimo_repo_activo": {"name": latest["name"], "fecha": latest["last_commit"], "url": latest["url"]} if latest else None,
         "calendar": calendar,
         "weekly": weeks,
         "hourly": [[d, h, n] for (d, h), n in sorted(hourly.items())],
