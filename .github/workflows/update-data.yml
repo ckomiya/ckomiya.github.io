@@ -24,6 +24,10 @@ jobs:
         env:
           GH_STATS_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
         run: python scripts/update_data.py
+      - name: Salvaguarda - ningún repo privado en los datos
+        env:
+          GH_STATS_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
+        run: python scripts/check_private_leak.py data/data.json data/cache.json
       - name: Commit si hay cambios
         run: |
           git config user.name "github-actions[bot]"
