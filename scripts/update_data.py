@@ -119,6 +119,7 @@ query($login: String!, $ytd: DateTime!) {
     }
     ytd: contributionsCollection(from: $ytd) {
       totalCommitContributions
+      restrictedContributionsCount
     }
   }
 }
@@ -155,28 +156,6 @@ def streak(calendar):
         n += 1
         d -= timedelta(days=1)
     return n
-
-
-def count_private_commits(all_repos, since, prev, warnings):
-    """Suma (solo un número) mis commits en repos privados desde `since`.
-
-    GraphQL no sirve: omite lo privado si el perfil no tiene activada la opción
-    "Include private contributions". Nunca se imprime ni se guarda un nombre.
-    """
-    total = 0
-    for r in all_repos:
-        if not r["private"] or r["owner"]["login"].lower() != LOGIN.lower():
-            continue
-        if (r.get("pushed_at") or "") < since:
-            continue
-        try:
-            total += len(rest_paged(f"/repos/{r['full_name']}/commits", f"&author={LOGIN}&since={since}"))
-        except ApiError as e:
-            if "409" in str(e):  # repo vacío
-                continue
-            warnings.append("commits privados: falló un repo; se conserva el total anterior")
-            return prev.get("kpis", {}).get("private_commits_year", 0)
-    return total
 
 
 # --- Commits históricos (incremental) y tamaño de commits ---------------------------
@@ -345,13 +324,16 @@ def main():
                 for w in gq["cal"]["contributionCalendar"]["weeks"] for d in w["contributionDays"]
                 if d["date"] <= TODAY.isoformat()]
     commits_year = gq["ytd"]["totalCommitContributions"]
+    # Contribuciones privadas del año: solo un número. GraphQL las agrega sin dar acceso a ningún repo
+    # privado (sirve con un fine-grained token) y se suman a totalCommitContributions, que cuenta lo público.
+    # Requiere "Include private contributions on my profile"; sin esa opción llega 0.
+    private_commits = gq["ytd"]["restrictedContributionsCount"]
 
     # --- Crítico: repos públicos propios, sin forks
     all_repos = rest_paged("/user/repos", "&affiliation=owner&sort=pushed")
     repos = [r for r in all_repos if not r["private"] and not r["fork"] and r["owner"]["login"].lower() == LOGIN.lower()]
 
     warnings = []
-    private_commits = count_private_commits(all_repos, ytd_from, prev, warnings)
 
     since = (NOW - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
     weekly, hourly = {}, {}
@@ -415,6 +397,8 @@ def main():
             "activo" if last_commit and datetime.fromisoformat(last_commit.replace("Z", "+00:00")) >= active_cutoff
             else "pausado")
         cutoff14 = (TODAY - timedelta(days=13)).isoformat()
+        if name.lower() == LOGIN.lower():  # repo de perfil (solo README): sus commits cuentan, pero no es un proyecto
+            continue
         out_repos.append({
             "name": name,
             "description": r.get("description") or "",
@@ -434,7 +418,7 @@ def main():
         })
 
     # Solo repos públicos actuales (si uno pasa a privado o se borra, su estado se descarta)
-    current = [r["name"] for r in out_repos]
+    current = [r["name"] for r in repos]
     states = {k: v for k, v in states.items() if k in current}
     commits_left = size_commits(states, current, warnings)
     fetch_code_frequency(repos, code_freq, warnings)
