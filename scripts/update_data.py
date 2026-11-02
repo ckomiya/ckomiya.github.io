@@ -308,23 +308,27 @@ def build_records(states):
     }
 
 
-def last_private_day(calendar, states):
-    """Último día con commits en repos privados, solo la fecha (el token no ve esos repos).
+def last_private_day(days=30):
+    """Último día con actividad en repos privados, solo la fecha (el token no ve esos repos).
 
-    Calendario total (incluye lo privado) menos los commits públicos del día. Un commit hecho de noche
-    en Lima cae al día siguiente en UTC: el déficit de un día se descuenta del siguiente.
+    GraphQL da restrictedContributionsCount por rango sin revelar repos; se pide día por día
+    (una sola consulta con alias) y se toma el más reciente con valor > 0. Cuenta contribuciones
+    privadas (commits, PRs, reviews), no solo commits. Si falla, devuelve None.
     """
-    pub = {}
-    for st in states.values():
-        for d, n in st["daily"].items():
-            pub[d] = pub.get(d, 0) + n
-    carry, last = 0, None
-    for d, n in calendar:
-        eff = n - pub.get(d, 0) + carry
-        carry = min(0, eff)
-        if eff > 0:
-            last = d
-    return last
+    try:
+        ds = [TODAY - timedelta(days=i) for i in range(days)]
+        def rng(d):
+            ini = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+            return ini.strftime("%Y-%m-%dT%H:%M:%SZ"), (ini + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        body = " ".join(f'd{i}: contributionsCollection(from: "{rng(d)[0]}", to: "{rng(d)[1]}") {{ restrictedContributionsCount }}'
+                        for i, d in enumerate(ds))
+        user = graphql("query($login: String!) { user(login: $login) { " + body + " } }", {"login": LOGIN})["user"]
+        for i, d in enumerate(ds):
+            if user[f"d{i}"]["restrictedContributionsCount"] > 0:
+                return d.isoformat()
+    except Exception as e:
+        print(f"aviso: no se pudo obtener la actividad privada: {e}", file=sys.stderr)
+    return None
 
 
 def main():
@@ -479,7 +483,7 @@ def main():
             "public_repos": len(out_repos),
             "private_commits_year": private_commits,
         },
-        "ultimo_commit_privado": last_private_day(calendar, states),
+        "ultima_actividad_privada": last_private_day(),
         "ultimo_repo_activo": {"name": latest["name"], "fecha": latest["last_commit"], "url": latest["url"]} if latest else None,
         "calendar": calendar,
         "weekly": weeks,
