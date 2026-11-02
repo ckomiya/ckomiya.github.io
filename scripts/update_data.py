@@ -308,6 +308,25 @@ def build_records(states):
     }
 
 
+def last_private_day(calendar, states):
+    """Último día con commits en repos privados, solo la fecha (el token no ve esos repos).
+
+    Calendario total (incluye lo privado) menos los commits públicos del día. Un commit hecho de noche
+    en Lima cae al día siguiente en UTC: el déficit de un día se descuenta del siguiente.
+    """
+    pub = {}
+    for st in states.values():
+        for d, n in st["daily"].items():
+            pub[d] = pub.get(d, 0) + n
+    carry, last = 0, None
+    for d, n in calendar:
+        eff = n - pub.get(d, 0) + carry
+        carry = min(0, eff)
+        if eff > 0:
+            last = d
+    return last
+
+
 def main():
     if not TOKEN:
         sys.exit("Falta GH_STATS_TOKEN (o GH_TOKEN).")
@@ -460,6 +479,7 @@ def main():
             "public_repos": len(out_repos),
             "private_commits_year": private_commits,
         },
+        "ultimo_commit_privado": last_private_day(calendar, states),
         "ultimo_repo_activo": {"name": latest["name"], "fecha": latest["last_commit"], "url": latest["url"]} if latest else None,
         "calendar": calendar,
         "weekly": weeks,
